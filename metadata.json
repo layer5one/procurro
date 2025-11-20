@@ -3,6 +3,7 @@
   "description": "An intelligent route scheduling app for process servers in Arizona. It uses Gemini to optimize weekly schedules based on job location, attempt requirements, and travel efficiency, and features voice commands for hands-free operation in the field.",
   "requestFramePermissions": [
     "microphone",
-    "geolocation"
+    "geolocation",
+    "camera"
   ]
 }

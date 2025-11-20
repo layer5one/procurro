@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { Job, Schedule } from '../types';
+import { Job, Schedule, JobType } from '../types';
 
 const API_KEY = process.env.API_KEY;
 if (!API_KEY) {
@@ -19,7 +19,7 @@ const responseSchema = {
         },
         route: {
           type: Type.ARRAY,
-          description: "An ordered list of service attempts for the day.",
+          description: "An ordered list of service attempts for the day optimized for driving efficiency.",
           items: {
             type: Type.OBJECT,
             properties: {
@@ -44,42 +44,95 @@ const responseSchema = {
     }
 };
 
+const jobParseSchema = {
+  type: Type.OBJECT,
+  properties: {
+    defendantName: { type: Type.STRING },
+    address: { type: Type.STRING },
+    type: { type: Type.STRING, enum: ["residential", "business"] },
+    specialHandling: { type: Type.BOOLEAN },
+    confidence: { type: Type.NUMBER, description: "Confidence score 0-1" }
+  },
+  required: ["defendantName", "address", "type"]
+};
+
+export async function parseJobFromText(text: string): Promise<any> {
+  const prompt = `
+    You are an AI assistant for a process server. 
+    Analyze the following email text or work order snippet. 
+    Extract the Defendant Name, Service Address, and determine if it is Residential or Business.
+    If the text mentions "Rush" or "Priority", mark specialHandling as true.
+    
+    Input Text:
+    """
+    ${text}
+    """
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-pro-preview",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: jobParseSchema,
+      }
+    });
+    return JSON.parse(response.text.trim());
+  } catch (e) {
+    console.error("Parse error", e);
+    throw new Error("Could not extract job details.");
+  }
+}
+
 export async function generateWeeklySchedule(
     jobs: Job[],
     userLocation: { lat: number, lng: number } | null
 ): Promise<Schedule> {
   const prompt = `
-    You are an expert dispatcher for a process serving company in Maricopa County, Arizona. Your task is to create an efficient 7-day weekly schedule for a process server. The work week starts on Saturday and ends on Friday.
+    You are an expert logistics planner and process server dispatcher.
+    Your goal is to solve the routing problem for a set of legal service jobs, minimizing driving time while strictly adhering to legal service windows.
 
-    **Rules:**
-    1.  **Job Completion:** A job is complete if successfully served OR it has 4 valid attempts. Do not schedule completed jobs.
-    2.  **Required Attempts (4 total):**
-        *   One 'Morning' attempt (8am - 10am, any day).
-        *   One 'Afternoon' attempt (10am - 6pm, WEEKDAYS ONLY: Mon-Fri).
-        *   One 'Evening' attempt (6pm - 8pm, any day).
-        *   One 'Weekend' attempt (any time on Saturday or Sunday).
-    3.  **First Attempt Rule:**
-        *   For jobs with type 'residential' and no prior attempts, the first attempt must be on a weekend (Saturday or Sunday).
-        *   For jobs with type 'business' and no prior attempts, the first attempt must be on a Monday during business hours.
-    4.  **Due Dates:** Jobs are due 2 weeks from their 'assignedDate'. Prioritize completing jobs within the first week unless 'specialHandling' is true.
-    5.  **Efficiency:** Create daily routes that minimize travel time. Group jobs that are geographically close. The server starts from ${userLocation ? `latitude: ${userLocation.lat}, longitude: ${userLocation.lng}` : 'an unknown location in central Phoenix'}. Use map data to optimize routing.
-    6.  **Existing Attempts:** Review the 'attempts' list for each job. Only schedule the remaining required attempt types. Do not schedule more than 4 total attempts.
+    **The Work Week:** Saturday to Friday.
+
+    **Legal Constraints & Rules:**
+    1.  **Completion Criteria:** A job is done if Served OR 'Non-Service' determined (e.g. diligence met). 
+    2.  **Required Attempt Types (Must have one of each to be diligent):**
+        *   'Morning' (8am - 10am).
+        *   'Afternoon' (10am - 6pm, Mon-Fri ONLY).
+        *   'Evening' (6pm - 8pm).
+        *   'Weekend' (Sat/Sun).
+    3.  **Fresh Service Rules:**
+        *   Residential jobs with 0 attempts: First attempt MUST be Weekend.
+        *   Business jobs with 0 attempts: First attempt MUST be Monday.
+    4.  **Efficiency:** Group geographically close addresses. 
+        *   Start location: ${userLocation ? `${userLocation.lat}, ${userLocation.lng}` : 'Downtown Phoenix'}.
+        *   Use your knowledge of local geography to cluster stops.
+    5.  **Prioritization:** Jobs are due 2 weeks from 'assignedDate'. Clear older jobs first.
 
     **Current Active Jobs:**
-    ${JSON.stringify(jobs)}
+    ${JSON.stringify(jobs.map(j => ({
+        id: j.id,
+        address: j.address,
+        type: j.type,
+        attemptsCount: j.attempts.length,
+        lastAttempt: j.attempts[j.attempts.length -1]?.date
+    })))}
 
-    **Your Task:**
-    Generate a 7-day schedule (Saturday to Friday) in JSON format. For each day, provide an ordered list of jobs to attempt. For each scheduled attempt, specify the 'jobId', planned 'time', and the targeted 'attemptType'.
+    **Task:**
+    Generate a 7-day JSON schedule. 
+    - Logic: Analyze the address of every job. Group them by neighborhood.
+    - Output: A strict JSON array matching the schema provided.
   `;
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-pro",
+      model: "gemini-3-pro-preview",
       contents: prompt,
       config: {
         responseMimeType: "application/json",
         responseSchema: responseSchema,
-        thinkingConfig: { thinkingBudget: 32768 }
+        thinkingConfig: { thinkingBudget: 4096 } 
       }
     });
     

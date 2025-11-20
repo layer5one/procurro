@@ -1,5 +1,4 @@
-
-import { Job, JobType } from './types';
+import { Job, JobType, AttemptType } from './types';
 
 export const INITIAL_JOBS: Job[] = [
   {
@@ -10,7 +9,14 @@ export const INITIAL_JOBS: Job[] = [
     assignedDate: '2023-10-01',
     specialHandling: false,
     attempts: [
-        { date: '2023-10-07', type: 'Weekend' as any, success: false },
+        { 
+            id: 'init-att-1',
+            date: '2023-10-07', 
+            timestamp: '2023-10-07T10:00:00.000Z',
+            type: AttemptType.WEEKEND, 
+            success: false,
+            reported: true
+        },
     ],
     isComplete: false,
   },
@@ -32,8 +38,22 @@ export const INITIAL_JOBS: Job[] = [
     assignedDate: '2023-09-28',
     specialHandling: true,
     attempts: [
-        { date: '2023-10-02', type: 'Afternoon' as any, success: false },
-        { date: '2023-10-04', type: 'Morning' as any, success: false },
+        { 
+            id: 'init-att-2',
+            date: '2023-10-02', 
+            timestamp: '2023-10-02T14:30:00.000Z',
+            type: AttemptType.AFTERNOON, 
+            success: false,
+            reported: true 
+        },
+        { 
+            id: 'init-att-3',
+            date: '2023-10-04', 
+            timestamp: '2023-10-04T09:15:00.000Z',
+            type: AttemptType.MORNING, 
+            success: false,
+            reported: true
+        },
     ],
     isComplete: false,
   },

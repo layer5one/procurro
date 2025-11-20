@@ -1,12 +1,16 @@
 
 import React, { useState } from 'react';
 import { Job, JobType } from '../types';
+import SmartImport from './SmartImport';
+import { SparklesIcon } from './icons';
 
 interface AddJobFormProps {
   onAddJob: (job: Omit<Job, 'id' | 'attempts' | 'isComplete' | 'assignedDate'>) => void;
 }
 
 const AddJobForm: React.FC<AddJobFormProps> = ({ onAddJob }) => {
+  const [mode, setMode] = useState<'manual' | 'smart'>('smart');
+  
   const [defendantName, setDefendantName] = useState('');
   const [address, setAddress] = useState('');
   const [type, setType] = useState<JobType>(JobType.RESIDENTIAL);
@@ -19,14 +23,42 @@ const AddJobForm: React.FC<AddJobFormProps> = ({ onAddJob }) => {
       return;
     }
     onAddJob({ defendantName, address, type, specialHandling });
+    resetForm();
+  };
+
+  const resetForm = () => {
     setDefendantName('');
     setAddress('');
     setType(JobType.RESIDENTIAL);
     setSpecialHandling(false);
-  };
+  }
+
+  if (mode === 'smart') {
+      return (
+          <div className="mb-6">
+              <div className="flex space-x-2 mb-4">
+                  <button className="text-sm text-cyan-400 border-b-2 border-cyan-400 font-bold pb-1">Smart Import</button>
+                  <button onClick={() => setMode('manual')} className="text-sm text-gray-500 hover:text-white pb-1">Manual Entry</button>
+              </div>
+              <SmartImport onImport={(data) => {
+                  onAddJob(data);
+              }} onCancel={() => setMode('manual')} />
+          </div>
+      )
+  }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 mb-4 p-4 bg-gray-700/50 rounded-lg">
+    <div className="mb-6 bg-gray-700/30 p-4 rounded-lg border border-gray-600">
+       <div className="flex justify-between mb-4">
+           <div className="flex space-x-2">
+                <button onClick={() => setMode('smart')} className="text-sm text-gray-500 hover:text-white pb-1 flex items-center">
+                    <SparklesIcon className="h-3 w-3 mr-1" /> Smart Import
+                </button>
+                <button className="text-sm text-cyan-400 border-b-2 border-cyan-400 font-bold pb-1">Manual Entry</button>
+           </div>
+       </div>
+
+    <form onSubmit={handleSubmit} className="space-y-4">
       <div>
         <label htmlFor="defendantName" className="block text-sm font-medium text-gray-300">Defendant Name</label>
         <input
@@ -75,11 +107,12 @@ const AddJobForm: React.FC<AddJobFormProps> = ({ onAddJob }) => {
       </div>
       <button
         type="submit"
-        className="w-full bg-cyan-600 text-white py-2 px-4 rounded-md hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-cyan-500"
+        className="w-full bg-gray-600 text-white py-2 px-4 rounded-md hover:bg-gray-500 transition-colors"
       >
-        Add Job
+        Add Job Manually
       </button>
     </form>
+    </div>
   );
 };
 
