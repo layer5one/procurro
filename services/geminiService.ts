@@ -2,11 +2,24 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Job, Schedule, JobType } from '../types';
 
-const API_KEY = process.env.API_KEY;
-if (!API_KEY) {
-    throw new Error("API_KEY environment variable is not set");
+// Helper to get the API key from environment OR local storage
+const getApiKey = (): string => {
+  const envKey = process.env.API_KEY;
+  if (envKey) return envKey;
+  
+  const storedKey = localStorage.getItem('ps_planner_api_key');
+  if (storedKey) return storedKey;
+  
+  throw new Error("API Key is missing. Please enter it in Settings.");
+};
+
+const initAI = () => {
+    try {
+        return new GoogleGenAI({ apiKey: getApiKey() });
+    } catch (e) {
+        return null;
+    }
 }
-const ai = new GoogleGenAI({ apiKey: API_KEY });
 
 const responseSchema = {
     type: Type.ARRAY,
@@ -57,6 +70,9 @@ const jobParseSchema = {
 };
 
 export async function parseJobFromText(text: string): Promise<any> {
+  const ai = initAI();
+  if (!ai) throw new Error("API Key not set. Please go to Settings.");
+
   const prompt = `
     You are an AI assistant for a process server. 
     Analyze the following email text or work order snippet. 
@@ -89,6 +105,9 @@ export async function generateWeeklySchedule(
     jobs: Job[],
     userLocation: { lat: number, lng: number } | null
 ): Promise<Schedule> {
+  const ai = initAI();
+  if (!ai) throw new Error("API Key not set. Please go to Settings.");
+
   const prompt = `
     You are an expert logistics planner and process server dispatcher.
     Your goal is to solve the routing problem for a set of legal service jobs, minimizing driving time while strictly adhering to legal service windows.

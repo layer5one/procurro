@@ -101,9 +101,15 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ jobs, addAttempt, markS
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaStreamRef.current = stream;
 
-      const API_KEY = process.env.API_KEY;
-      if (!API_KEY) throw new Error("API key not found");
-      const ai = new GoogleGenAI({ apiKey: API_KEY });
+      // Retrieve API Key from Local Storage or Env
+      const apiKey = localStorage.getItem('ps_planner_api_key') || process.env.API_KEY;
+      if (!apiKey) {
+          alert("Please enter your API Key in settings first.");
+          setConnectionState(ConnectionState.ERROR);
+          return;
+      }
+      
+      const ai = new GoogleGenAI({ apiKey: apiKey });
       
       const inputAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
       const outputAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });

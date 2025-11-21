@@ -40,6 +40,11 @@ export default function App() {
   const [isFormVisible, setIsFormVisible] = useState<boolean>(false);
   const [nearbyJobId, setNearbyJobId] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<'active' | 'history'>('active');
+  
+  // Settings / API Key State
+  const [showSettings, setShowSettings] = useState(false);
+  const [apiKey, setApiKey] = useState('');
+  const [apiKeySaved, setApiKeySaved] = useState(false);
 
   // Persistence Logic
   useEffect(() => {
@@ -53,6 +58,13 @@ export default function App() {
       }
     } else {
       setJobs(INITIAL_JOBS);
+    }
+
+    // Load API Key
+    const storedKey = localStorage.getItem('ps_planner_api_key');
+    if (storedKey) {
+        setApiKey(storedKey);
+        setApiKeySaved(true);
     }
   }, []);
 
@@ -100,6 +112,14 @@ export default function App() {
   const activeJobs = useMemo(() => jobs.filter(job => !job.isComplete), [jobs]);
   const completedJobs = useMemo(() => jobs.filter(job => job.isComplete), [jobs]);
 
+  const saveApiKey = () => {
+      if(apiKey.trim()) {
+          localStorage.setItem('ps_planner_api_key', apiKey);
+          setApiKeySaved(true);
+          setShowSettings(false);
+      }
+  }
+
   const handleGenerateSchedule = useCallback(async () => {
     if (!activeJobs.length) {
       setError("No active jobs to schedule.");
@@ -111,9 +131,10 @@ export default function App() {
     try {
       const generatedSchedule = await generateWeeklySchedule(activeJobs, userLocation);
       setSchedule(generatedSchedule);
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      setError("Failed to generate schedule. Please try again.");
+      setError(e.message || "Failed to generate schedule.");
+      if (e.message.includes("API Key")) setShowSettings(true);
     } finally {
       setIsLoading(false);
     }
@@ -262,6 +283,42 @@ export default function App() {
           </div>
       )}
 
+      {/* Settings Modal */}
+      {showSettings && (
+          <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4">
+              <div className="bg-gray-800 p-6 rounded-xl shadow-2xl max-w-md w-full border border-cyan-500/30">
+                  <h2 className="text-xl font-bold text-white mb-4">App Settings</h2>
+                  <div className="mb-4">
+                      <label className="block text-sm text-gray-300 mb-2">Gemini API Key</label>
+                      <input 
+                        type="password" 
+                        value={apiKey}
+                        onChange={(e) => setApiKey(e.target.value)}
+                        className="w-full bg-gray-900 border border-gray-600 rounded p-3 text-white focus:border-cyan-500 outline-none"
+                        placeholder="Paste your API key here..."
+                      />
+                      <p className="text-xs text-gray-500 mt-2">
+                          Required for Route Planning and Smart Import. Saved locally on your device.
+                      </p>
+                  </div>
+                  <div className="flex justify-end space-x-3">
+                      <button 
+                        onClick={() => setShowSettings(false)}
+                        className="px-4 py-2 text-gray-400 hover:text-white"
+                      >
+                          Close
+                      </button>
+                      <button 
+                        onClick={saveApiKey}
+                        className="bg-cyan-600 text-white px-4 py-2 rounded-lg hover:bg-cyan-500 font-bold"
+                      >
+                          Save Key
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
+
       <header className="bg-gray-800/50 backdrop-blur-sm sticky top-0 z-10 shadow-lg border-b border-gray-700">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center space-x-3">
@@ -273,7 +330,16 @@ export default function App() {
                 <p className="text-[10px] text-gray-400 uppercase tracking-wider mt-1">Gemini 3.0 Integrated</p>
             </div>
           </div>
-          <VoiceAssistant jobs={activeJobs} addAttempt={(id, type) => addAttempt(id, type)} markServed={markServed} />
+          <div className="flex items-center space-x-2">
+            <button 
+                onClick={() => setShowSettings(true)}
+                className={`p-2 rounded-full ${apiKeySaved ? 'text-gray-400 hover:text-white' : 'text-red-400 animate-pulse'}`}
+                title="Settings"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.72v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+            <VoiceAssistant jobs={activeJobs} addAttempt={(id, type) => addAttempt(id, type)} markServed={markServed} />
+          </div>
         </div>
       </header>
 
